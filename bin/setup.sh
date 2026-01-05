@@ -1,6 +1,24 @@
 #!/bin/bash
 set -e
 
+# Default values
+DEFAULT_CONFIG_PATH="$HOME/.claude"
+
+show_usage() {
+    cat <<EOF
+Usage: $0 --notes-folder <path> [--config-path <path>]
+
+Options:
+  --notes-folder <path>   Path to Obsidian vault (tasks_notes/, knowledge_base/)
+  --config-path <path>    Where config files go (default: ~/.claude)
+  -h, --help              Show this help
+
+Examples:
+  $0 --notes-folder ~/Documents/claude
+  $0 --notes-folder ~/Documents/claude --config-path ~/.claude
+EOF
+}
+
 resolve_path() {
     local input="$1"
     if [ -z "$input" ]; then
@@ -88,24 +106,18 @@ prompt_yes_no() {
 }
 
 setup_symlinks() {
+    # Skip if config path is already ~/.claude
+    if [ "$CONFIG_PATH" = "$HOME/.claude" ]; then
+        return
+    fi
+
     echo ""
-    if ! prompt_yes_no "Would you like to create symlinks from your Claude folder into ~/.claude now?" "n"; then
+    if ! prompt_yes_no "Would you like to create symlinks from $CONFIG_PATH into ~/.claude?" "n"; then
         echo "Skipping symlink creation."
         return
     fi
 
-    local default_target="$HOME/.claude"
-    read -p "Enter the directory where symlinks should be created [$default_target]: " target_input
-    echo
-    if [ -z "$target_input" ]; then
-        target_input="$default_target"
-    fi
-
-    local target_dir
-    if ! target_dir="$(resolve_path "$target_input")"; then
-        echo "Error: Unable to resolve symlink target directory: $target_input"
-        return
-    fi
+    local target_dir="$HOME/.claude"
 
     echo "Symlinks will be created in: $target_dir"
     if [ ! -d "$target_dir" ]; then
@@ -142,10 +154,10 @@ setup_symlinks() {
         echo "↪ Linked $destination -> $source"
     }
 
-    create_link "$CLAUDE_PATH/CLAUDE.md" "$target_dir/CLAUDE.md"
-    create_link "$CLAUDE_PATH/commands" "$target_dir/commands"
-    create_link "$CLAUDE_PATH/agents" "$target_dir/agents"
-    create_link "$CLAUDE_PATH/skills" "$target_dir/skills"
+    create_link "$CONFIG_PATH/CLAUDE.md" "$target_dir/CLAUDE.md"
+    create_link "$CONFIG_PATH/commands" "$target_dir/commands"
+    create_link "$CONFIG_PATH/agents" "$target_dir/agents"
+    create_link "$CONFIG_PATH/skills" "$target_dir/skills"
 
     echo ""
     echo "Symlink setup complete!"
@@ -154,30 +166,55 @@ setup_symlinks() {
 # Claude Code Knowledge Setup Script
 # Initializes personal configuration files from .example templates
 
-if [ $# -eq 0 ]; then
-    echo "Error: Please provide the path to your claude folder"
-    echo "Usage: $0 /path/to/your/claude/folder"
-    echo ""
-    echo "Example:"
-    echo "  $0 /home/user/Documents/claude"
-    echo "  $0 ~/my-claude-setup"
+# Parse arguments
+CONFIG_PATH="$DEFAULT_CONFIG_PATH"
+NOTES_FOLDER=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --config-path)
+            CONFIG_PATH="$2"
+            shift 2
+            ;;
+        --notes-folder)
+            NOTES_FOLDER="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+# Validate required arg
+if [ -z "$NOTES_FOLDER" ]; then
+    echo "Error: --notes-folder is required"
+    show_usage
     exit 1
 fi
 
-CLAUDE_PATH_INPUT="$1"
-# Resolve to absolute path using portable shell logic
-if ! CLAUDE_PATH="$(resolve_path "$CLAUDE_PATH_INPUT")"; then
-    echo "Error: Unable to resolve destination path: $CLAUDE_PATH_INPUT"
+# Resolve paths to absolute
+if ! CONFIG_PATH="$(resolve_path "$CONFIG_PATH")"; then
+    echo "Error: Unable to resolve config path: $CONFIG_PATH"
     exit 1
 fi
+if ! NOTES_FOLDER="$(resolve_path "$NOTES_FOLDER")"; then
+    echo "Error: Unable to resolve notes folder: $NOTES_FOLDER"
+    exit 1
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Expand $HOME for .claude path replacement
-HOME_EXPANDED="$HOME"
-
 echo "Setting up Claude Code configuration..."
-echo "Claude folder: $CLAUDE_PATH"
+echo "Config path: $CONFIG_PATH"
+echo "Notes folder: $NOTES_FOLDER"
 echo "Repository root: $REPO_ROOT"
 echo ""
 
@@ -187,11 +224,12 @@ FILES=(
     "commands/review-knowledge.md"
     "commands/user/context.md"
     "skills/note-taking/SKILL.md"
+    "skills/planner/SKILL.md"
 )
 
 for file in "${FILES[@]}"; do
     example_file="${file}.example"
-    target_file="${CLAUDE_PATH}/${file}"
+    target_file="${CONFIG_PATH}/${file}"
 
     if [ ! -f "$example_file" ]; then
         echo "Warning: $example_file not found, skipping..."
@@ -209,15 +247,14 @@ for file in "${FILES[@]}"; do
     fi
 
     # Create target file with replacements
-    sed -e "s|/path/to/claude|$CLAUDE_PATH|g" \
-        -e "s|\$HOME/.claude|$HOME_EXPANDED/.claude|g" \
+    sed -e "s|/path/to/claude|$NOTES_FOLDER|g" \
         "$example_file" > "$target_file"
 
     echo "✓ Created $target_file"
 done
 
 AGENTS_SOURCE_DIR="agents"
-AGENTS_TARGET_DIR="${CLAUDE_PATH}/agents"
+AGENTS_TARGET_DIR="${CONFIG_PATH}/agents"
 
 if [ -d "$AGENTS_SOURCE_DIR" ]; then
     echo ""
@@ -254,5 +291,5 @@ echo ""
 echo "Setup complete! Your configuration files are ready."
 echo ""
 echo "Next steps:"
-echo "1. Review the generated files in $CLAUDE_PATH to ensure paths are correct"
+echo "1. Review the generated files in $CONFIG_PATH to ensure paths are correct"
 echo "2. Customize these files to reflect your workflows and preferences"

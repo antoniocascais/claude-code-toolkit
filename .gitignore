@@ -4,6 +4,7 @@ commands/review-notes.md
 commands/review-knowledge.md
 commands/user/context.md
 skills/note-taking/SKILL.md
+skills/planner/SKILL.md
 
 # Generation script (personal use only)
 bin/generate-examples.sh

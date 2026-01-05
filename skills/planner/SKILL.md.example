@@ -1,0 +1,148 @@
+---
+name: planner
+description: Captures and organizes personal tasks into typed folders (work, learning, product, content, career, admin). Use when user mentions adding tasks, planning the week, reviewing task backlog, triaging inbox, or managing todos.
+allowed-tools: Read, Glob, Grep
+---
+
+# Planner Skill
+
+Task capture and organization system with typed folders, inbox triage, and weekly planning.
+
+## Storage Location
+
+**Base Directory**: `/path/to/claude/tasks_notes/`
+
+```
+tasks_notes/
+├── _inbox/              # Quick capture (classify later)
+├── work/                # Job deliverables, meetings
+├── learning/            # Skills, courses, experiments
+├── product/             # Personal app builds
+├── content/             # Blog posts, tweets, demos
+├── career/              # Job search, networking, interview prep
+└── admin/               # Life stuff, errands, misc
+```
+
+Folders are auto-created on first use.
+
+## Commands
+
+### `/planner help`
+Show available commands and usage.
+
+### `/planner add "<task>" [--type TYPE] [--priority PRIORITY]`
+Add a task to a typed folder.
+- `--type`: work, learning, product, content, career, admin (auto-detected if omitted)
+- `--priority`: high, medium, low (default: medium)
+
+Examples:
+```
+/planner add "Fix prod auth bug" --type work --priority high
+/planner add "RAG tutorial" --type learning
+/planner add "Update LinkedIn" --type career
+```
+
+Creates either:
+- Entry in `TYPE/tasks.md` (simple tasks)
+- Individual file `TYPE/<task-name>.md` (complex tasks)
+
+### `/planner inbox "<task>"`
+Quick capture to inbox for later classification.
+
+```
+/planner inbox "random idea for newsletter"
+```
+
+### `/planner classify`
+Review inbox items and move to correct folders.
+
+**Confirmation required:** For each item:
+1. Show the task
+2. Suggest type based on keyword matching (see `reference/taxonomy.md`)
+3. Ask user: "Move to [type]? (y/n/other)"
+4. Only move after explicit confirmation
+5. If user says "other", prompt for correct type
+
+### `/planner week`
+Generate weekly plan from active tasks.
+- Reads all typed folders
+- Creates `week-plan-YYYY-MM-DD.md` in base directory
+- Groups tasks by type with focus areas
+
+### `/planner review`
+Show task status overview.
+- Task counts per folder
+- In-progress items highlighted
+- Inbox items needing classification
+
+## Workflows
+
+### Quick Capture Flow
+1. User: `/planner inbox "some idea"`
+2. Skill creates `_inbox/some-idea.md` or adds to `_inbox/tasks.md`
+3. Later: `/planner classify` to sort
+
+### Focused Add Flow
+1. User: `/planner add "task" --type work --priority high`
+2. Skill detects complexity (simple → tasks.md, complex → individual file)
+3. Creates entry with status: pending, priority: high
+
+### Weekly Planning Flow
+1. User: `/planner week`
+2. Skill scans all folders for pending/in_progress tasks
+3. Generates week plan with focus areas
+4. User reviews and adjusts priorities
+
+## Task Types
+
+See `reference/taxonomy.md` for detailed type definitions and routing rules.
+
+| Type | Folder | Triggers |
+|------|--------|----------|
+| work | `work/` | job, meeting, deliverable, sprint, PR, deploy |
+| learning | `learning/` | learn, course, study, practice, tutorial, read |
+| product | `product/` | build, app, feature, ship, MVP, side project |
+| content | `content/` | blog, post, tweet, demo, video, write |
+| career | `career/` | job, interview, resume, network, LinkedIn |
+| admin | `admin/` | errand, pay, schedule, misc, appointment |
+
+## Templates
+
+### Simple Tasks (per-folder list)
+See `templates/tasks.md`
+
+### Complex Task (individual file)
+See `templates/task-detail.md`
+
+### Week Plan
+See `templates/week-plan.md`
+
+## Task Complexity Heuristic
+
+**Simple** (add to tasks.md):
+- One-liner description
+- No sub-tasks needed
+- Estimated < 1 hour
+
+**Complex** (create individual file):
+- Needs breakdown or notes
+- Multiple steps or dependencies
+- User explicitly requests file
+
+When uncertain, ask user preference.
+
+## Operations
+
+### Auto-Create Folders
+Before any write operation, check if target folder exists. If not, create folder and initialize `tasks.md` from template.
+
+### Status Values
+- `pending` - Not started
+- `in_progress` - Currently working
+- `done` - Completed
+- `blocked` - Waiting on something
+
+### Priority Values
+- `high` - Do this week
+- `medium` - Do this month
+- `low` - Backlog

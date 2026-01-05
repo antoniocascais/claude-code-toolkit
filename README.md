@@ -13,69 +13,69 @@ cd claude-code-knowledge
 
 ### 2. Run the Setup Script
 
-The setup script will generate your personal configuration files from the `.example` templates directly inside the Claude directory you specify:
+The setup script will generate your personal configuration files from the `.example` templates:
 
 ```bash
-./bin/setup.sh /path/to/your/claude/folder
+./bin/setup.sh --notes-folder /path/to/your/notes/folder
 ```
 
 **Examples:**
 ```bash
-# Standard location
-./bin/setup.sh /home/user/Documents/claude
+# Standard location (config goes to ~/.claude by default)
+./bin/setup.sh --notes-folder ~/Documents/claude
 
-# Custom location
-./bin/setup.sh ~/my-claude-setup
+# Custom config path
+./bin/setup.sh --notes-folder ~/Documents/claude --config-path ~/my-claude-config
 
-# Any arbitrary path
-./bin/setup.sh /my/special/path/claude
+# Show help
+./bin/setup.sh --help
 ```
 
 **What it does:**
 - Reads all `.example` template files in the repository
-- Normalizes the destination path so relative and `~` inputs work everywhere
-- Replaces `/path/to/claude` with your provided path
-- Replaces `$HOME/.claude` with your actual home directory
-- Creates/updates the following files inside your Claude directory:
-  - `<CLAUDE_PATH>/CLAUDE.md` - Main configuration
-  - `<CLAUDE_PATH>/commands/review-notes.md` - Task notes maintenance command
-  - `<CLAUDE_PATH>/commands/review-knowledge.md` - Knowledge base review command
-  - `<CLAUDE_PATH>/commands/user/context.md` - Context loading command
-  - `<CLAUDE_PATH>/skills/note-taking/SKILL.md` - Note-taking and knowledge management skill
-- Copies every file from the repository's `agents/` directory into `<CLAUDE_PATH>/agents/`
+- Normalizes paths so relative and `~` inputs work everywhere
+- Replaces `/path/to/claude` with your `--notes-folder` path
+- Creates/updates the following files inside your config directory:
+  - `<CONFIG_PATH>/CLAUDE.md` - Main configuration
+  - `<CONFIG_PATH>/commands/review-notes.md` - Task notes maintenance command
+  - `<CONFIG_PATH>/commands/review-knowledge.md` - Knowledge base review command
+  - `<CONFIG_PATH>/commands/user/context.md` - Context loading command
+  - `<CONFIG_PATH>/skills/note-taking/SKILL.md` - Note-taking and knowledge management skill
+  - `<CONFIG_PATH>/skills/planner/SKILL.md` - Task planning and organization skill
+- Copies every file from the repository's `agents/` directory into `<CONFIG_PATH>/agents/`
 - Ensures the required subfolders exist before writing each file
 - Prompts for confirmation before overwriting any existing destination file
-- Offers to create symlinks into `~/.claude` (or another directory you choose), asking before replacing anything already there
+- If `--config-path` differs from `~/.claude`, offers to create symlinks into `~/.claude`
 
 ### 3. Create Required Directories
 
 The setup script does not create your working data directories (only the configuration files). Create them once:
 
 ```bash
-# Replace with your path from step 2
-mkdir -p /path/to/your/claude/folder/tasks_notes
-mkdir -p /path/to/your/claude/folder/knowledge_base
+# Replace with your --notes-folder path from step 2
+mkdir -p /path/to/your/notes/folder/tasks_notes
+mkdir -p /path/to/your/notes/folder/knowledge_base
 ```
 
 ### 4. Configure Claude Code
 
-If you opted into symlink creation during setup, this step is already complete. Otherwise, link your generated files into Claude Code manually:
+If you used the default `--config-path` (`~/.claude`), this step is already complete. Otherwise, link your generated files into Claude Code manually:
 
 ```bash
-# Create symlinks from ~/.claude to your Claude folder
-ln -s /path/to/your/claude/folder/CLAUDE.md ~/.claude/CLAUDE.md
-ln -s /path/to/your/claude/folder/agents ~/.claude/agents
-ln -s /path/to/your/claude/folder/commands ~/.claude/commands
-ln -s /path/to/your/claude/folder/skills ~/.claude/skills
+# Create symlinks from ~/.claude to your config folder
+ln -s /path/to/your/config/folder/CLAUDE.md ~/.claude/CLAUDE.md
+ln -s /path/to/your/config/folder/agents ~/.claude/agents
+ln -s /path/to/your/config/folder/commands ~/.claude/commands
+ln -s /path/to/your/config/folder/skills ~/.claude/skills
 ```
 
 **Example:**
 ```bash
-# If you ran setup with /home/user/Documents/claude
-ln -s /home/user/Documents/claude/CLAUDE.md ~/.claude/CLAUDE.md
-ln -s /home/user/Documents/claude/agents ~/.claude/agents
-ln -s /home/user/Documents/claude/commands ~/.claude/commands
-ln -s /home/user/Documents/claude/skills ~/.claude/skills
+# If you ran setup with --config-path ~/my-claude-config
+ln -s ~/my-claude-config/CLAUDE.md ~/.claude/CLAUDE.md
+ln -s ~/my-claude-config/agents ~/.claude/agents
+ln -s ~/my-claude-config/commands ~/.claude/commands
+ln -s ~/my-claude-config/skills ~/.claude/skills
 ```
 
 **Benefits of symlinks:**
