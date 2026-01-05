@@ -10,10 +10,10 @@ Task capture and organization system with typed folders, inbox triage, and weekl
 
 ## Storage Location
 
-**Base Directory**: `/path/to/claude/tasks_notes/`
+**Base Directory**: `/path/to/claude/tasks_notes/planner/`
 
 ```
-tasks_notes/
+tasks_notes/planner/
 ├── _inbox/              # Quick capture (classify later)
 ├── work/                # Job deliverables, meetings
 ├── learning/            # Skills, courses, experiments
