@@ -18,9 +18,15 @@ Use **fuzzy matching** to resolve $ARGUMENTS to a folder under:
 - If multiple plausible matches exist, show a **ranked list** and choose the best; if uncertain, ask.
 
 ### Load & summarize
-- For the chosen folder, read all `*.md` (ignore `.git/`, `node_modules/`, build artifacts).
+- **List** all files in matched folder (ignore `.git/`, `node_modules/`, build artifacts).
+- **Read only** `notes.md` as the entry point.
+- Trust `notes.md` references other files via `[[links]]` or path mentions.
 - Summarize: purpose/context, active tasks, recent updates, blockers, next actions.
-- End with `Loaded from: <path>` and a 3–5 bullet “Now up to speed” summary.
+- End with `Loaded from: <path>` and a 3–5 bullet "Now up to speed" summary.
+
+### If no notes.md
+- Report "no notes.md found in <folder>".
+- List available `.md` files in the folder.
 
 ### If nothing suitable
 - Say no strong match found; list top candidates from both roots and propose likely intents.
