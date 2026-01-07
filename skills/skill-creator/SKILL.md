@@ -106,6 +106,33 @@ Inform user of the iteration loop:
 **Conditional**: Decision trees based on input type or user choice (see `webapp-testing/`)
 **Multi-phase**: Plan → validate → execute → verify (for destructive operations)
 
+### Enforcing Phase Gates
+
+Claude tends to rush ahead. To force hard stops between phases, use `AskUserQuestion` as a gate:
+
+```markdown
+## Phase 1: Gather Input
+
+**STOP. Use AskUserQuestion before proceeding.**
+
+[phase instructions...]
+
+**Do NOT proceed to Phase 2 until user responds.**
+
+## Phase 2: Confirm Understanding
+
+**STOP. Use AskUserQuestion to confirm before execution.**
+
+[present what you understood, then ask confirmation...]
+
+**Do NOT proceed to Phase 3 until user confirms.**
+```
+
+Key elements:
+- Bold **STOP** directive at phase start
+- Explicit instruction to use `AskUserQuestion`
+- Clear "do NOT proceed until..." at phase end
+
 ## Resource Types
 
 | Type | Purpose | Context Loading |
