@@ -1,86 +1,93 @@
-# claude-code-knowledge
+# claude-code-toolkit
 
-A comprehensive knowledge management system for Claude Code with intelligent note-taking, knowledge base curation, and automated maintenance workflows.
+My Claude Code configs — grab what you need.
 
-## Quick Start
+## What's Inside
 
-### 1. Clone the Repository
+### Skills
+| Skill | Description |
+|-------|-------------|
+| `git-commit` | Analyzes staged changes, proposes commit structure (single/multiple), generates messages |
+| `skill-creator` | Scaffolds new skills following official spec |
+| `reviewing-code-changes` | Code review for diffs, commits, branches, PRs — security, best practices, performance |
+| `note-taking` | Task notes + knowledge base management |
+| `planner` | Task capture and organization |
+
+### Commands
+| Command | Description |
+|---------|-------------|
+| `git/security_review` | Security review of repository code |
+| `myplanner` | Task planning proxy |
+| `myskill` | Skill discovery and execution |
+| `review-notes` | Task notes maintenance |
+| `review-knowledge` | Knowledge base review |
+| `user/context` | Load context from topic folders |
+
+### Agents
+| Agent | Description |
+|-------|-------------|
+| `knowledge-base-curator` | Enhances knowledge base entries |
+| `task-notes-cleaner` | Cleans outdated context from task notes |
+
+### Hooks & Utilities
+- `bin/claude-block-sensitive-bash.sh` — Block sensitive bash commands
+- `bin/claude-block-sensitive-files.sh` — Block sensitive file access
+- `bin/claude_code_statusline.sh` — Statusline integration
+
+### Config Template
+`CLAUDE.md.example` — Personal instructions template with:
+- ast-grep examples for code navigation
+- Git commit style guidelines
+- Code comment philosophy
+- Communication protocols
+
+## Setup
+
+### 1. Clone
 
 ```bash
-git clone https://github.com/antoniocascais/claude-code-knowledge.git
-cd claude-code-knowledge
+git clone https://github.com/antoniocascais/claude-code-toolkit.git
+cd claude-code-toolkit
 ```
 
-### 2. Run the Setup Script
-
-The setup script will generate your personal configuration files from the `.example` templates:
+### 2. Run Setup
 
 ```bash
 ./bin/setup.sh --notes-folder /path/to/your/notes/folder
 ```
 
-**Examples:**
+This processes `.example` templates, replacing paths with your config:
+
 ```bash
-# Standard location (config goes to ~/.claude by default)
+# Examples
 ./bin/setup.sh --notes-folder ~/Documents/claude
-
-# Custom config path
 ./bin/setup.sh --notes-folder ~/Documents/claude --config-path ~/my-claude-config
-
-# Show help
-./bin/setup.sh --help
 ```
 
-**What it does:**
-- Reads all `.example` template files in the repository
-- Normalizes paths so relative and `~` inputs work everywhere
-- Replaces `/path/to/claude` with your `--notes-folder` path
-- Creates/updates the following files inside your config directory:
-  - `<CONFIG_PATH>/CLAUDE.md` - Main configuration
-  - `<CONFIG_PATH>/commands/review-notes.md` - Task notes maintenance command
-  - `<CONFIG_PATH>/commands/review-knowledge.md` - Knowledge base review command
-  - `<CONFIG_PATH>/commands/user/context.md` - Context loading command
-  - `<CONFIG_PATH>/skills/note-taking/SKILL.md` - Note-taking and knowledge management skill
-  - `<CONFIG_PATH>/skills/planner/SKILL.md` - Task planning and organization skill
-- Copies every file from the repository's `agents/` directory into `<CONFIG_PATH>/agents/`
-- Ensures the required subfolders exist before writing each file
-- Prompts for confirmation before overwriting any existing destination file
-- If `--config-path` differs from `~/.claude`, offers to create symlinks into `~/.claude`
+**Creates:**
+- `<CONFIG_PATH>/CLAUDE.md`
+- `<CONFIG_PATH>/commands/` — review-notes, review-knowledge, context
+- `<CONFIG_PATH>/skills/` — note-taking, planner
+- `<CONFIG_PATH>/agents/` — all agents
 
-### 3. Create Required Directories
-
-The setup script does not create your working data directories (only the configuration files). Create them once:
+### 3. Create Data Directories
 
 ```bash
-# Replace with your --notes-folder path from step 2
 mkdir -p /path/to/your/notes/folder/tasks_notes
 mkdir -p /path/to/your/notes/folder/knowledge_base
 ```
 
-### 4. Configure Claude Code
+### 4. Link to Claude Code (if needed)
 
-If you used the default `--config-path` (`~/.claude`), this step is already complete. Otherwise, link your generated files into Claude Code manually:
+If you used a custom `--config-path`:
 
 ```bash
-# Create symlinks from ~/.claude to your config folder
 ln -s /path/to/your/config/folder/CLAUDE.md ~/.claude/CLAUDE.md
 ln -s /path/to/your/config/folder/agents ~/.claude/agents
 ln -s /path/to/your/config/folder/commands ~/.claude/commands
 ln -s /path/to/your/config/folder/skills ~/.claude/skills
 ```
 
-**Example:**
-```bash
-# If you ran setup with --config-path ~/my-claude-config
-ln -s ~/my-claude-config/CLAUDE.md ~/.claude/CLAUDE.md
-ln -s ~/my-claude-config/agents ~/.claude/agents
-ln -s ~/my-claude-config/commands ~/.claude/commands
-ln -s ~/my-claude-config/skills ~/.claude/skills
-```
+## License
 
-**Benefits of symlinks:**
-- Changes to the repository are immediately available to Claude Code
-- Easy to track changes with git
-- No need to copy files manually after updates
-
-Refer to [Claude Code documentation](https://docs.claude.com/en/docs/claude-code/overview) for more information on custom commands and agents.
+AGPL-3.0
