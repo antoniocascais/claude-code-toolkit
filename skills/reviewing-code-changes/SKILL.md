@@ -1,7 +1,7 @@
 ---
 name: reviewing-code-changes
 description: Performs comprehensive reviews of git diffs, commits, branches, and pull requests. Use when the user asks to review code, a commit hash, a branch, or a PR, especially for security, best practices, performance issues, or dependency vulnerabilities.
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read Glob Grep Bash
 ---
 
 # Code Review Skill
