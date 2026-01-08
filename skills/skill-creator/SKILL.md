@@ -48,16 +48,34 @@ Use AskUserQuestion to collect:
    - Include ALL trigger keywords in description (primary discovery mechanism)
    - Example: "Processes PDF files to extract text and tables. Use when working with PDFs, extracting document content, or converting PDF to markdown."
 
-3. **Allowed tools** (optional) - restrict capabilities (space-delimited)
-   - Read-only: `Read Glob Grep`
-   - With Bash patterns: `Read Write Bash(git:*) Glob Grep`
-   - Subcommand restriction: `Bash(git diff:*) Bash(git status:*) Read`
+3. **Allowed tools** (optional) - restrict capabilities
+   - Space-delimited: `Read Glob Grep`
+   - YAML list (cleaner for many tools):
+     ```yaml
+     allowed-tools:
+       - Read
+       - Write
+       - Bash(git:*)
+     ```
+   - Bash patterns: `Bash(git:*)`, `Bash(git diff:*)`
    - Unrestricted: omit field entirely
 
 4. **Complexity** - determines resource structure
    - Simple: SKILL.md only
    - Medium: + references/ for docs
    - Complex: + scripts/ for automation, templates/ for output
+
+5. **Execution context** (optional)
+   - Needs isolated context? → `context: fork`
+   - Specific agent type? → `agent: Explore` / `Plan`
+
+6. **Visibility** (optional)
+   - Hide from slash commands? → `user-invocable: false`
+
+7. **Hooks** (optional) - lifecycle automation
+   - Validation after writes?
+   - Logging before tool use?
+   - See `references/hooks.md` for patterns
 
 ### Step 2: Validate Name
 
@@ -78,7 +96,11 @@ Create `SKILL.md` with:
 ---
 name: {skill-name}
 description: {description}
-allowed-tools: {tools}  # space-delimited, omit if unrestricted
+allowed-tools: {tools}       # space-delimited or YAML list, omit if unrestricted
+context: fork                # optional: isolated execution
+agent: {agent-type}          # optional: Explore, Plan, etc.
+user-invocable: true         # optional: slash command visibility
+hooks: {}                    # optional: see references/hooks.md
 ---
 ```
 
@@ -88,8 +110,7 @@ Generate skill body matching the degree of freedom needed. Use imperative/infini
 
 ```
 ✅ Skill created at: ~/.claude/skills/{skill-name}/
-
-⚠️  Restart Claude Code to load the new skill.
+✅ Skill is immediately available (hot-reload enabled)
 ```
 
 ### Step 5: Iterate (User)
@@ -144,6 +165,37 @@ Key elements:
 
 **Anti-patterns**: No README.md, CHANGELOG.md, INSTALLATION_GUIDE.md - only include what Claude needs to execute.
 
+## Isolated Execution
+
+Use `context: fork` for skills that need isolated sub-agent context:
+
+```yaml
+---
+name: code-analyzer
+context: fork
+agent: Explore
+---
+```
+
+When forked:
+- Skill runs in separate context
+- Parent conversation state preserved
+- Results returned to main context
+
+## Skill Hooks
+
+Skills can define lifecycle hooks scoped to their execution. See `references/hooks.md` for full documentation.
+
+Quick example:
+```yaml
+hooks:
+  PostToolUse:
+    - matcher: Write
+      hooks:
+        - type: command
+          command: "jq -r '.tool_input.file_path' | xargs -I{} ./validate.sh \"{}\""
+```
+
 ## Skill Spec (Condensed)
 
 ### Required Frontmatter
@@ -151,7 +203,12 @@ Key elements:
 - `description`: what + when (triggers), third person, ≤1024 chars
 
 ### Optional Frontmatter
-- `allowed-tools`: space-delimited pre-approved tools (e.g., `Read Glob Bash(git:*)`)
+- `allowed-tools`: pre-approved tools (space-delimited or YAML list)
+- `context`: `fork` for isolated sub-agent execution
+- `agent`: agent type for execution (e.g., `Explore`, `Plan`)
+- `hooks`: skill-specific lifecycle hooks (see `references/hooks.md`)
+- `language`: response language (e.g., `japanese`)
+- `user-invocable`: `false` to hide from slash command menu (default: `true`)
 - `license`: e.g., "MIT"
 
 ### Body Guidelines
