@@ -2,6 +2,7 @@
 name: planner
 description: Captures and organizes personal tasks into typed folders (work, learning, product, content, career, admin). Use when user mentions adding tasks, planning the week, reviewing task backlog, triaging inbox, or managing todos.
 allowed-tools: Read, Glob, Grep
+user-invocable: true
 ---
 
 # Planner Skill
