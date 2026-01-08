@@ -17,7 +17,6 @@ input=$(cat)
 # Extract values from JSON
 dir=$(echo "$input" | jq -r '.cwd')
 #dir=$(echo "$input" )
-model=$(echo "$input" | jq -r '.model.display_name')
 duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms')
 lines_added=$(echo "$input" | jq -r '.cost.total_lines_added')
 lines_removed=$(echo "$input" | jq -r '.cost.total_lines_removed')
@@ -26,6 +25,13 @@ workspace_current_dir=$(echo "$input" | jq -r '.workspace.current_dir')
 workspace_project_dir=$(echo "$input" | jq -r '.workspace.project_dir')
 ctx_input_tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens')
 ctx_output_tokens=$(echo "$input" | jq -r '.context_window.total_output_tokens')
+
+# Context window usage (current request)
+ctx_window_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
+ctx_current_usage=$(echo "$input" | jq '.context_window.current_usage')
+ctx_cur_input=$(echo "$ctx_current_usage" | jq -r '.input_tokens // 0')
+ctx_cache_create=$(echo "$ctx_current_usage" | jq -r '.cache_creation_input_tokens // 0')
+ctx_cache_read=$(echo "$ctx_current_usage" | jq -r '.cache_read_input_tokens // 0')
 
 # Check if usage refresh is needed
 needs_refresh() {
@@ -193,6 +199,37 @@ format_context_window() {
     }")
 
     echo "\e[38;5;246mtokens: in:${in_fmt} out:${out_fmt}\e[0m"
+}
+
+# Format context window usage like /context command
+format_ctx_usage() {
+    local window_size=$1
+    local input=$2
+    local cache_create=$3
+    local cache_read=$4
+
+    if [[ "$window_size" -eq 0 ]]; then
+        echo ""
+        return
+    fi
+
+    local used=$((input + cache_create + cache_read))
+    # 22.5% autocompact buffer - reserved by Claude Code for compaction operations
+    local ac_buffer=$((window_size * 225 / 1000))
+    local used_with_buffer=$((used + ac_buffer))
+    local used_k=$((used_with_buffer / 1000))
+    local total_k=$((window_size / 1000))
+    local pct=$((used_with_buffer * 100 / window_size))
+
+    # Color based on usage (high usage = warning)
+    local color="\e[38;5;119m"  # Green: 0-50%
+    if (( pct > 80 )); then
+        color="\e[38;5;196m"    # Red: 81%+
+    elif (( pct > 50 )); then
+        color="\e[38;5;220m"    # Yellow: 51-80%
+    fi
+
+    echo "\e[38;5;246mctx:\e[0m ${color}${used_k}k/${total_k}k (${pct}%)\e[0m"
 }
 
 # Detect dependency errors recorded in the usage log
@@ -479,22 +516,23 @@ formatted_session_duration=$(format_duration "$duration_ms")
 formatted_lines=$(format_lines "$lines_added" "$lines_removed")
 token_warning=$(format_token_warning "$exceeds_tokens")
 formatted_context=$(format_context_window "$ctx_input_tokens" "$ctx_output_tokens")
+formatted_ctx_usage=$(format_ctx_usage "$ctx_window_size" "$ctx_cur_input" "$ctx_cache_create" "$ctx_cache_read")
 formatted_dir=$(format_directory "$workspace_current_dir" "$workspace_project_dir")
 formatted_usage=$(format_usage_display)
 
 # Format and display the status line with colors
 if [[ -n "$git_branch" ]]; then
-    # With git branch: dir │ branch │ model │ duration │ context │ lines token_warning usage
+    # With git branch: dir │ branch │ duration │ context │ lines │ ctx_usage │ usage
     if [[ -n "$formatted_lines" ]]; then
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;208m$git_branch\e[0m \e[38;5;240m│\e[0m \e[38;5;222m$model\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_lines$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
+        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;208m$git_branch\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_lines \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
     else
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;208m$git_branch\e[0m \e[38;5;240m│\e[0m \e[38;5;222m$model\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
+        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;208m$git_branch\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
     fi
 else
-    # Without git branch: dir │ model │ duration │ context │ lines token_warning usage
+    # Without git branch: dir │ duration │ context │ lines │ ctx_usage │ usage
     if [[ -n "$formatted_lines" ]]; then
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;222m$model\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_lines$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
+        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_lines \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
     else
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;222m$model\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
+        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
     fi
 fi
