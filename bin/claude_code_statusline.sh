@@ -495,10 +495,24 @@ format_usage_display() {
     echo -e "$display"
 }
 
+# Smart path truncation: max 3 components, ~ for home, .. when truncated
+truncate_path() {
+    local p="${1/#$HOME/\~}"
+    local trimmed="${p#/}"
+    local parts=() IFS='/'
+    read -ra parts <<< "$trimmed"
+    local n=${#parts[@]}
+    if (( n > 3 )); then
+        echo "../${parts[*]: -3}" | tr ' ' '/'
+    else
+        echo "$p"
+    fi
+}
+
 # Format directory display with project/current labels
 format_directory() {
-    local current=$1
-    local project=$2
+    local current=$(truncate_path "$1")
+    local project=$(truncate_path "$2")
 
     if [[ "$current" == "$project" ]]; then
         # Same directory: show only project
