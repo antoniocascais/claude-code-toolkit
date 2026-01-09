@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: Reviews code changes before merging. Use when reviewing PRs, checking staged changes, reviewing diffs, code review, merge readiness check, or validating changes before commit/push.
-allowed-tools: Read Glob Grep Bash(git diff:*) Bash(git status:*) Bash(git log:*) Bash(git show:*) Bash(git branch:*) Bash(gitleaks:*) Bash(trufflehog:*) Bash(trivy:*) Bash(shellcheck:*) AskUserQuestion
+allowed-tools: Read Glob Grep Bash(git diff:*) Bash(git status:*) Bash(git log:*) Bash(git show:*) Bash(git branch:*) Bash(gitleaks:*) Bash(trufflehog:*) Bash(trivy:*) Bash(shellcheck:*) Bash(npm audit:*) Bash(yarn audit:*) Bash(pip-audit:*) Bash(safety:*) Bash(tfsec:*) Bash(checkov:*) Bash(hadolint:*) AskUserQuestion
 ---
 
 # PR Review Skill
@@ -10,7 +10,7 @@ Reviews code changes with focus on quality, security, and consistency.
 
 ## Default Assumption: Public Repository
 
-Unless explicitly stated otherwise, assume the repository is **publicly available on the internet**. This means:
+Unless explicitly stated otherwise, assume the repository is **publicly available**. This means:
 - Any secret, credential, or API key pushed is considered compromised
 - Internal URLs, IPs, hostnames should not be exposed
 - Comments with sensitive internal context should be flagged
@@ -23,73 +23,136 @@ Unless explicitly stated otherwise, assume the repository is **publicly availabl
 
 Ask user to choose review scope:
 - Staged files only
+- Unstaged changes (working directory)
+- All uncommitted (staged + unstaged)
 - Current branch vs main (PR-style)
-- Specific commit range
+- Specific commit or range
 - Other (specify)
 
 **Do NOT run any git commands or tools until user responds.**
 
-After user selects, get the diff:
+After selection, get the diff:
 - Staged: `git diff --cached`
+- Unstaged: `git diff`
+- All uncommitted: `git diff HEAD`
 - Branch vs main: `git diff main...HEAD`
-- Commit range: `git diff <from>..<to>`
+- Commit: `git show <hash>`
+- Range: `git diff <from>..<to>`
+
+Also get changed files list: `git diff --name-only <appropriate args>`
 
 ## Phase 2: Understand the Problem
 
-**STOP. Use AskUserQuestion to confirm before proceeding to review.**
+**STOP. Use AskUserQuestion to confirm before proceeding.**
 
-First, infer intent from:
+Infer intent from:
 1. Branch name: `git branch --show-current`
 2. Commit messages: `git log main..HEAD --oneline` (or relevant range)
 
 Then use AskUserQuestion to confirm:
 > "Based on branch `feature/xyz` and commits, this PR appears to [inferred description]. Is this correct?"
-> - Yes, proceed with review
+> - Yes, proceed
 > - No, let me explain
 
-**Do NOT proceed to Phase 3 until user confirms the problem statement.**
+**Do NOT proceed until user confirms.**
 
-## Phase 3: Review
+## Phase 3: Auto-Detect Stack
 
-### 3.1 Code Quality
-- Best practices for the language/framework
+Check for presence of:
+- `package.json` / `yarn.lock` → Node.js
+- `requirements.txt` / `pyproject.toml` → Python
+- `go.mod` → Go
+- `Cargo.toml` → Rust
+- `Dockerfile` → Docker
+- `*.tf` → Terraform
+- `*.yaml` in k8s patterns → Kubernetes
+- `.github/workflows/` → GitHub Actions
+
+Note detected stack for context-aware analysis.
+
+## Phase 4: Run Scanners
+
+Execute relevant scanners (skip silently if not installed):
+
+**Always run:**
+| Tool | Command |
+|------|---------|
+| gitleaks | `gitleaks detect --source . --verbose --no-git` |
+| trufflehog | `trufflehog filesystem . --only-verified` |
+
+**Stack-specific:**
+| Stack | Tool | Command |
+|-------|------|---------|
+| Node.js | npm audit | `npm audit --json` |
+| Node.js | yarn audit | `yarn audit --json` |
+| Python | pip-audit | `pip-audit` |
+| Python | safety | `safety check` |
+| Docker | trivy | `trivy fs .` |
+| Docker | hadolint | `hadolint Dockerfile` |
+| Terraform | tfsec | `tfsec .` |
+| Terraform | checkov | `checkov -d .` |
+| Terraform | trivy | `trivy config .` |
+| K8s | trivy | `trivy config .` |
+| Shell scripts | shellcheck | `shellcheck <file>` |
+
+## Phase 5: Code Review
+
+Analyze the diff for all categories. Be pragmatic—flag likely issues, skip obvious false positives.
+
+### 5.1 Code Quality
+- Best practices for detected stack
 - Readability and maintainability
 - Error handling appropriateness
 - Test coverage (if tests exist)
+- Idiomatic patterns
+- Type safety issues
 
-### 3.2 Codebase Consistency
+### 5.2 Codebase Consistency
 - Match existing patterns in the repo
 - Naming conventions alignment
 - File organization consistency
 - Don't introduce a 10th way of doing something
 
-### 3.3 Security Review
-
-**Automated scans** - only run tools relevant to changed files:
-
-| File types | Tool | Command |
-|------------|------|---------|
-| Any | gitleaks | `gitleaks detect --source . --verbose --no-git` |
-| Any | trufflehog | `trufflehog filesystem . --only-verified` |
-| *.tf, *.tfvars | trivy | `trivy config <dir>` |
-| *.yaml, *.yml (k8s) | trivy | `trivy config <dir>` |
-| *.sh, *.bash | shellcheck | `shellcheck <file>` |
+### 5.3 Security
 
 **Manual checks:**
-- Hardcoded secrets, API keys, passwords
+- Hardcoded secrets, API keys, passwords, connection strings
 - SQL injection, XSS, command injection vectors
+- Path traversal risks
 - Auth/authz bypasses
 - Insecure defaults (http vs https, weak crypto)
-- Sensitive data exposure in logs/errors
+- Sensitive data in logs/errors/URLs
+- Container: running as root, privileged mode, unverified base images
 
-### 3.4 Bug Detection
-- Obvious logic errors
-- Off-by-one, null/undefined handling
+### 5.4 Bug Detection
+- Logic errors, off-by-one
+- Null/undefined handling
 - Race conditions
-- Resource leaks
+- Resource leaks (unclosed handles, connections)
 - Breaking changes to existing APIs
 
-## Phase 4: Report
+### 5.5 Dependencies
+- Known vulnerable package versions
+- Outdated dependencies with security patches
+- Unpinned versions
+- Suspicious or typosquatted package names
+
+### 5.6 Performance
+- N+1 query patterns
+- Sync operations in async contexts
+- Unbounded loops/recursion
+- Memory leaks
+- Missing pagination
+- Blocking I/O in hot paths
+
+### 5.7 Deprecations & Drift
+- Deprecated APIs, functions, patterns
+- Breaking changes in dependencies
+- Hardcoded values that should be variables
+- Environment-specific configs in shared code
+- Configuration diverging from IaC patterns
+
+## Phase 6: Report
 
 Output a succinct markdown report:
 
@@ -100,7 +163,9 @@ Output a succinct markdown report:
 
 **Scope:** [staged/branch/commits reviewed]
 
-### Security Scans
+**Stack:** [detected tech stack]
+
+### Scanner Results
 | Tool | Result |
 |------|--------|
 | gitleaks | [clean/N findings] |
@@ -108,19 +173,30 @@ Output a succinct markdown report:
 
 ### Findings
 
-#### [Category: Security/Quality/Consistency/Bug]
-- **[severity]** [file:line] - [issue with brief context]
+#### CRITICAL
+- `file:line` - [issue with brief context]
 
-### Rating: X/20
+#### HIGH
+- `file:line` - [issue]
+
+#### MEDIUM
+- `file:line` - [issue]
+
+#### LOW
+- `file:line` - [issue]
+
+### Summary
+- Critical: X | High: X | Medium: X | Low: X
+
+### Review Score: X/20
 [One sentence justification]
 
-### Suggestions
-| Priority | Suggestion |
-|----------|------------|
+### Action Required
+| Priority | Item |
+|----------|------|
 | blocker | ... |
-| high | ... |
-| medium | ... |
-| minor | ... |
+| should fix | ... |
+| consider | ... |
 ```
 
 ## Rating Scale
@@ -128,17 +204,17 @@ Output a succinct markdown report:
 | Score | Meaning | Action |
 |-------|---------|--------|
 | 0-10 | Blocker issues | Reject, needs significant rework |
-| 11-15 | Acceptable | Merge after addressing medium/minor fixes |
-| 16-17 | Good | Ready to merge, minor suggestions optional |
-| 18-20 | Excellent | High quality, merge immediately |
+| 11-15 | Acceptable | Merge after addressing fixes |
+| 16-17 | Good | Ready to merge, suggestions optional |
+| 18-20 | Excellent | Merge immediately |
 
 ## Style Guidelines
 
 Keep findings concise but contextual:
 - Bad: "should use https here"
-- Good: "using http exposes data in transit. upgrade to https"
+- Good: "http exposes data in transit, use https"
 
 - Bad: "fix this null check"
-- Good: "user.email accessed without null check - crashes if user not found"
+- Good: "`user.email` accessed without null check - crashes if user not found"
 
 Don't write a 50-page report. Focus on what matters.
