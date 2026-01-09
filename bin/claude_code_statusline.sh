@@ -23,8 +23,8 @@ lines_removed=$(echo "$input" | jq -r '.cost.total_lines_removed')
 exceeds_tokens=$(echo "$input" | jq -r '.exceeds_200k_tokens')
 workspace_current_dir=$(echo "$input" | jq -r '.workspace.current_dir')
 workspace_project_dir=$(echo "$input" | jq -r '.workspace.project_dir')
-ctx_input_tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens')
-ctx_output_tokens=$(echo "$input" | jq -r '.context_window.total_output_tokens')
+model_name=$(echo "$input" | jq -r '.model.display_name // "unknown"')
+total_cost=$(echo "$input" | jq -r '.cost.total_cost_usd // 0')
 
 # Context window usage (current request)
 ctx_window_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
@@ -136,6 +136,29 @@ get_git_branch() {
     fi
 }
 
+# Format model name with color coding (orange like git branch)
+format_model() {
+    local model=$1
+    echo "\e[38;5;208m$model\e[0m"
+}
+
+# Format cost with color coding
+format_cost() {
+    local cost=$1
+    local formatted=$(LC_NUMERIC=C printf "%.2f" "$cost")
+
+    local color="\e[38;5;119m"  # Green: <$1
+    if (( $(echo "$cost > 10" | bc -l) )); then
+        color="\e[38;5;196m"    # Red: >$10
+    elif (( $(echo "$cost > 5" | bc -l) )); then
+        color="\e[38;5;208m"    # Orange: $5-10
+    elif (( $(echo "$cost > 1" | bc -l) )); then
+        color="\e[38;5;220m"    # Yellow: $1-5
+    fi
+
+    echo "${color}\$${formatted}\e[0m"
+}
+
 # Format duration display
 format_duration() {
     local ms=$1
@@ -177,28 +200,6 @@ format_token_warning() {
     else
         echo ""
     fi
-}
-
-# Format token display (session I/O stats)
-format_context_window() {
-    local input_tokens=$1
-    local output_tokens=$2
-
-    # Handle null/missing values
-    if [[ "$input_tokens" == "null" || -z "$input_tokens" ]]; then input_tokens=0; fi
-    if [[ "$output_tokens" == "null" || -z "$output_tokens" ]]; then output_tokens=0; fi
-
-    # Format token counts (k suffix for thousands)
-    local in_fmt=$(awk "BEGIN {
-        if ($input_tokens >= 1000) printf \"%.1fk\", $input_tokens/1000;
-        else printf \"%d\", $input_tokens
-    }")
-    local out_fmt=$(awk "BEGIN {
-        if ($output_tokens >= 1000) printf \"%.1fk\", $output_tokens/1000;
-        else printf \"%d\", $output_tokens
-    }")
-
-    echo "\e[38;5;246mtokens: in:${in_fmt} out:${out_fmt}\e[0m"
 }
 
 # Format context window usage like /context command
@@ -515,24 +516,26 @@ git_branch=$(get_git_branch)
 formatted_session_duration=$(format_duration "$duration_ms")
 formatted_lines=$(format_lines "$lines_added" "$lines_removed")
 token_warning=$(format_token_warning "$exceeds_tokens")
-formatted_context=$(format_context_window "$ctx_input_tokens" "$ctx_output_tokens")
+formatted_model=$(format_model "$model_name")
+formatted_cost=$(format_cost "$total_cost")
 formatted_ctx_usage=$(format_ctx_usage "$ctx_window_size" "$ctx_cur_input" "$ctx_cache_create" "$ctx_cache_read")
 formatted_dir=$(format_directory "$workspace_current_dir" "$workspace_project_dir")
 formatted_usage=$(format_usage_display)
 
-# Format and display the status line with colors
+# Format and display the status line with two lines
+# Line 1: Model, cost, dir, branch, lines, duration
+line1="\e[38;5;240m┌─\e[0m $formatted_model $formatted_cost \e[38;5;240m│\e[0m $formatted_dir"
 if [[ -n "$git_branch" ]]; then
-    # With git branch: dir │ branch │ duration │ context │ lines │ ctx_usage │ usage
-    if [[ -n "$formatted_lines" ]]; then
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;208m$git_branch\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_lines \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
-    else
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;208m$git_branch\e[0m \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
-    fi
-else
-    # Without git branch: dir │ duration │ context │ lines │ ctx_usage │ usage
-    if [[ -n "$formatted_lines" ]]; then
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_lines \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
-    else
-        echo -e "\e[38;5;240m┌─\e[0m $formatted_dir \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m \e[38;5;240m│\e[0m $formatted_context \e[38;5;240m│\e[0m $formatted_ctx_usage$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
-    fi
+    line1+=" \e[38;5;240m│\e[0m \e[38;5;208m$git_branch\e[0m"
 fi
+if [[ -n "$formatted_lines" ]]; then
+    line1+=" \e[38;5;240m│\e[0m $formatted_lines"
+fi
+line1+=" \e[38;5;240m│\e[0m \e[38;5;246m$formatted_session_duration\e[0m"
+
+# Line 2: Context, usage
+line2="\e[38;5;240m└─\e[0m $formatted_ctx_usage"
+line2+="$token_warning$formatted_usage \e[38;5;240m─┘\e[0m"
+
+echo -e "$line1"
+echo -e "$line2"
