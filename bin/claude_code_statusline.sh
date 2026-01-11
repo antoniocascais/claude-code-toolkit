@@ -255,19 +255,19 @@ parse_session_usage() {
         return
     fi
 
-    local session_line
-    session_line=$(grep -A 1 "Current session" "$USAGE_LOG" | tail -1)
-
     local percentage=""
+    local session_line
+    session_line=$(grep -m 1 "Current session" "$USAGE_LOG")
+
     if [[ -n "$session_line" ]]; then
-        percentage=$(echo "$session_line" | grep -o '[0-9]\+%' | head -1 | tr -d '%')
+        # Extract from same line: "9%used" or "9% used"
+        percentage=$(echo "$session_line" | grep -oE '[0-9]+%' | head -1 | tr -d '%')
     fi
 
+    # Fallback: check next line
     if [[ -z "$percentage" ]]; then
-        session_line=$(grep -m 1 "Session:" "$USAGE_LOG")
-        if [[ -n "$session_line" ]]; then
-            percentage=$(echo "$session_line" | sed -n 's/.*Session:[^0-9]*\([0-9][0-9]*\)%.*/\1/p')
-        fi
+        session_line=$(grep -A 1 "Current session" "$USAGE_LOG" | tail -1)
+        percentage=$(echo "$session_line" | grep -o '[0-9]\+%' | head -1 | tr -d '%')
     fi
 
     echo "${percentage:-0}"
@@ -280,31 +280,25 @@ parse_session_reset() {
         return
     fi
 
-    local reset_line
-    reset_line=$(grep -A 2 "Current session" "$USAGE_LOG" | grep "Resets" | head -1)
-    local reset_info=""
+    local session_line
+    session_line=$(grep -m 1 "Current session" "$USAGE_LOG")
 
-    if [[ -n "$reset_line" ]]; then
-        reset_info=$(echo "$reset_line" | sed 's/^[[:space:]]*Resets //' | sed 's/ (.*$//')
-    fi
-
-    if [[ -z "$reset_info" ]]; then
-        local session_line
-        session_line=$(grep -m 1 "Session:" "$USAGE_LOG")
-
-        if [[ -n "$session_line" ]]; then
-            local after_arrow
-            after_arrow=$(echo "$session_line" | awk -F "↻" 'NF>1 {print $2}')
-            if [[ -n "$after_arrow" ]]; then
-                after_arrow=${after_arrow%%│*}
-                after_arrow=${after_arrow%%┘*}
-                after_arrow=$(echo "$after_arrow" | sed 's/^[[:space:]]*//;s/[[:space:]─]*$//')
-                reset_info="$after_arrow"
-            fi
+    if [[ -n "$session_line" ]]; then
+        # Extract "Resets8pm" or "Resets 8pm" -> "8pm"
+        local reset_info
+        reset_info=$(echo "$session_line" | grep -oE 'Resets ?[0-9]+:?[0-9]*[ap]m' | sed 's/Resets *//')
+        if [[ -n "$reset_info" ]]; then
+            echo "$reset_info"
+            return
         fi
     fi
 
-    echo "$reset_info"
+    # Fallback: check for "Resets" on next lines
+    local reset_line
+    reset_line=$(grep -A 2 "Current session" "$USAGE_LOG" | grep "Resets" | head -1)
+    if [[ -n "$reset_line" ]]; then
+        echo "$reset_line" | sed 's/^[[:space:]]*Resets //' | sed 's/ (.*$//'
+    fi
 }
 
 # Parse usage log for week percentage
