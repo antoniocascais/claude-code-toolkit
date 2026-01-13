@@ -9,19 +9,20 @@ My Claude Code configs — grab what you need.
 |-------|-------------|
 | `git-commit` | Analyzes staged changes, proposes commit structure (single/multiple), generates messages |
 | `skill-creator` | Scaffolds new skills following official spec |
-| `reviewing-code-changes` | Code review for diffs, commits, branches, PRs — security, best practices, performance |
+| `pr-review` | Code review for diffs, commits, branches, PRs (TODO: refactor to support Claude OR Codex as reviewer) |
 | `note-taking` | Task notes + knowledge base management |
 | `planner` | Task capture and organization |
+| `codemap` | Generate codebase maps with architecture diagrams (WIP - still testing) |
 
 ### Commands
 | Command | Description |
 |---------|-------------|
 | `git/security_review` | Security review of repository code |
-| `myplanner` | Task planning proxy |
 | `myskill` | Skill discovery and execution |
 | `review-notes` | Task notes maintenance |
 | `review-knowledge` | Knowledge base review |
 | `user/context` | Load context from topic folders |
+| `pr-respond` | Responds to PR review comments from screenshots |
 
 ### Agents
 | Agent | Description |
