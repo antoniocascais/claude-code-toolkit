@@ -26,12 +26,6 @@ workspace_project_dir=$(echo "$input" | jq -r '.workspace.project_dir')
 model_name=$(echo "$input" | jq -r '.model.display_name // "unknown"')
 total_cost=$(echo "$input" | jq -r '.cost.total_cost_usd // 0')
 
-# Context window usage (current request)
-ctx_window_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
-ctx_current_usage=$(echo "$input" | jq '.context_window.current_usage')
-ctx_cur_input=$(echo "$ctx_current_usage" | jq -r '.input_tokens // 0')
-ctx_cache_create=$(echo "$ctx_current_usage" | jq -r '.cache_creation_input_tokens // 0')
-ctx_cache_read=$(echo "$ctx_current_usage" | jq -r '.cache_read_input_tokens // 0')
 
 # Check if usage refresh is needed
 needs_refresh() {
@@ -202,35 +196,32 @@ format_token_warning() {
     fi
 }
 
-# Format context window usage like /context command
+# Format context window usage
+#
+# Claude Code reserves a 22.5% "autocompact buffer" for compaction operations.
+# This means compaction triggers at ~77.5% raw usage (77.5 + 22.5 = 100%).
+# We show RAW usage percentage but color-code based on proximity to compaction:
+#   - Green (0-40%):  plenty of room (effective 0-62%)
+#   - Yellow (41-55%): getting full (effective 63-77%)
+#   - Red (56%+):     compaction imminent (effective 78%+)
 format_ctx_usage() {
-    local window_size=$1
-    local input=$2
-    local cache_create=$3
-    local cache_read=$4
+    local used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
+    local window_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
 
-    if [[ "$window_size" -eq 0 ]]; then
-        echo ""
-        return
-    fi
+    [[ "$window_size" -eq 0 ]] && return
 
-    local used=$((input + cache_create + cache_read))
-    # 22.5% autocompact buffer - reserved by Claude Code for compaction operations
-    local ac_buffer=$((window_size * 225 / 1000))
-    local used_with_buffer=$((used + ac_buffer))
-    local used_k=$((used_with_buffer / 1000))
     local total_k=$((window_size / 1000))
-    local pct=$((used_with_buffer * 100 / window_size))
+    local used_k=$((window_size * used_pct / 100000))
 
-    # Color based on usage (high usage = warning)
-    local color="\e[38;5;119m"  # Green: 0-50%
-    if (( pct > 80 )); then
-        color="\e[38;5;196m"    # Red: 81%+
-    elif (( pct > 50 )); then
-        color="\e[38;5;220m"    # Yellow: 51-80%
+    # Color based on proximity to compaction (buffer-aware thresholds)
+    local color="\e[38;5;119m"  # Green
+    if (( used_pct > 55 )); then
+        color="\e[38;5;196m"    # Red
+    elif (( used_pct > 40 )); then
+        color="\e[38;5;220m"    # Yellow
     fi
 
-    echo "\e[38;5;246mctx:\e[0m ${color}${used_k}k/${total_k}k (${pct}%)\e[0m"
+    echo "\e[38;5;246mctx:\e[0m ${color}${used_k}k/${total_k}k (${used_pct}%)\e[0m"
 }
 
 # Detect dependency errors recorded in the usage log
@@ -526,7 +517,7 @@ formatted_lines=$(format_lines "$lines_added" "$lines_removed")
 token_warning=$(format_token_warning "$exceeds_tokens")
 formatted_model=$(format_model "$model_name")
 formatted_cost=$(format_cost "$total_cost")
-formatted_ctx_usage=$(format_ctx_usage "$ctx_window_size" "$ctx_cur_input" "$ctx_cache_create" "$ctx_cache_read")
+formatted_ctx_usage=$(format_ctx_usage)
 formatted_dir=$(format_directory "$workspace_current_dir" "$workspace_project_dir")
 formatted_usage=$(format_usage_display)
 
