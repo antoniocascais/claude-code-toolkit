@@ -13,6 +13,7 @@ My Claude Code configs — grab what you need.
 | `note-taking` | Task notes + knowledge base management |
 | `planner` | Task capture and organization |
 | `codemap` | Generate codebase maps with architecture diagrams (WIP - still testing) |
+| `workflow-review` | Reviews CC sessions and proposes workflow improvements (CLAUDE.md updates, new skills, underused features) |
 
 ### Commands
 | Command | Description |
@@ -88,6 +89,71 @@ ln -s /path/to/your/config/folder/agents ~/.claude/agents
 ln -s /path/to/your/config/folder/commands ~/.claude/commands
 ln -s /path/to/your/config/folder/skills ~/.claude/skills
 ```
+
+## Skill-Specific Setup
+
+### workflow-review
+
+Requires hooks in `~/.claude/settings.json` for automatic session tracking.
+
+**If you don't have a `hooks` section yet**, add this entire block:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/skills/workflow-review/scripts/message-counter.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/skills/workflow-review/scripts/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/skills/workflow-review/scripts/session-end.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/skills/workflow-review/scripts/pre-compact.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**If you already have a `hooks` section**, add the `UserPromptSubmit`, `SessionStart`, and `SessionEnd` entries inside it.
+
+**Dependencies:** `jq` (scripts check for availability and fail gracefully)
+
+**Error logs:** `/tmp/claude-workflow-review-error.log`
 
 ## License
 
