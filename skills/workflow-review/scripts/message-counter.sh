@@ -7,9 +7,14 @@
 
 set -E  # ERR trap works in subshells
 
-# Error handling - log to file, don't break Claude
+# Logging - always log for debugging
+LOG_FILE="/tmp/claude-workflow-review.log"
 ERROR_LOG="/tmp/claude-workflow-review-error.log"
 exec 2>>"$ERROR_LOG"
+
+log_debug() {
+  echo "[$(date '+%Y-%m-%dT%H:%M:%S')] $*" >> "$LOG_FILE"
+}
 
 log_error() {
   echo "[$(date '+%Y-%m-%dT%H:%M:%S')] message-counter: $*" >> "$ERROR_LOG"
@@ -27,12 +32,20 @@ fi
 THRESHOLD=30
 STATE_DIR="${TMPDIR:-/tmp}/claude-workflow-review"
 
-# Parse session_id from hook input
+# Parse session_id from transcript_path (more stable than session_id field)
 INPUT=$(cat) || { log_error "Failed to read stdin"; exit 0; }
-SESSION_ID=$(jq -r '.session_id // empty' <<<"$INPUT" 2>/dev/null) || {
-  log_error "Failed to parse session_id from input"
-  exit 0
-}
+log_debug "INPUT: $INPUT"
+
+TRANSCRIPT_PATH=$(jq -r '.transcript_path // empty' <<<"$INPUT" 2>/dev/null)
+if [[ -n "$TRANSCRIPT_PATH" ]]; then
+  # Extract stable session ID from path: "/path/to/abc123.jsonl" -> "abc123"
+  SESSION_ID=$(basename "$TRANSCRIPT_PATH" .jsonl)
+  log_debug "SESSION_ID (from transcript_path): $SESSION_ID"
+else
+  # Fallback to hook session_id
+  SESSION_ID=$(jq -r '.session_id // empty' <<<"$INPUT" 2>/dev/null)
+  log_debug "SESSION_ID (from session_id field): $SESSION_ID"
+fi
 
 # Validate SESSION_ID - only allow safe characters (alphanumeric, dash, underscore)
 if [[ -z "$SESSION_ID" ]] || [[ ! "$SESSION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
@@ -45,6 +58,11 @@ mkdir -p "$STATE_DIR" 2>/dev/null && chmod 700 "$STATE_DIR" 2>/dev/null || {
   log_error "Failed to create state dir: $STATE_DIR"
   exit 0
 }
+
+# Cleanup stale files from other sessions (older than 6 hours)
+# SessionEnd hook doesn't fire reliably (terminal close, Ctrl+C, etc.)
+find "$STATE_DIR" -type f \( -name 'count-*' -o -name 'lock-*' -o -name 'nudged-*' \) \
+  ! -name "*${SESSION_ID}*" -mmin +360 -delete 2>/dev/null || true
 
 COUNT_FILE="$STATE_DIR/count-${SESSION_ID}"
 NUDGED_FILE="$STATE_DIR/nudged-${SESSION_ID}"
@@ -60,6 +78,7 @@ LOCK_FILE="$STATE_DIR/lock-${SESSION_ID}"
     log_error "Failed to write count file"
     exit 0
   }
+  log_debug "COUNT: $COUNT (file: $COUNT_FILE)"
 
   # Nudge once when threshold reached (use -ge to handle any skipped values)
   if [[ "$COUNT" -ge "$THRESHOLD" ]] && [[ ! -f "$NUDGED_FILE" ]]; then

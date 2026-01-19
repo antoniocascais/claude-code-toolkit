@@ -26,8 +26,15 @@ fi
 
 # Parse hook input
 INPUT=$(cat) || { log_error "Failed to read stdin"; exit 0; }
-SESSION_ID=$(jq -r '.session_id // empty' <<<"$INPUT" 2>/dev/null)
 CWD=$(jq -r '.cwd // empty' <<<"$INPUT" 2>/dev/null)
+
+# Extract session_id from transcript_path (more stable than session_id field)
+TRANSCRIPT_PATH=$(jq -r '.transcript_path // empty' <<<"$INPUT" 2>/dev/null)
+if [[ -n "$TRANSCRIPT_PATH" ]]; then
+  SESSION_ID=$(basename "$TRANSCRIPT_PATH" .jsonl)
+else
+  SESSION_ID=$(jq -r '.session_id // empty' <<<"$INPUT" 2>/dev/null)
+fi
 
 # Validate SESSION_ID - only allow safe characters
 if [[ -z "$SESSION_ID" ]] || [[ ! "$SESSION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
