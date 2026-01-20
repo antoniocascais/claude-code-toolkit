@@ -3,8 +3,7 @@
 ## Metadata
 - **Created**: YYYY-MM-DD
 - **Last Updated**: YYYY-MM-DD
-- **Last Read**: YYYY-MM-DD
-- **Tags**: #domain #content-type #status
+- **Tags**: #domain #content-type
 - **Related**: [[Related Note 1]], [[Related Note 2]]
 
 ## Overview

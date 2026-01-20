@@ -1,153 +1,143 @@
 ---
 name: note-taking
-description: Manages task notes and knowledge base entries. Use when creating/updating notes, curating knowledge, reviewing task progress, or at session end for cleanup.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: Manages task notes and knowledge base entries. Use when creating/updating notes, curating knowledge, reviewing task progress, saving session progress, remembering information, writing notes, or at session end for cleanup.
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - AskUserQuestion
+  - Bash(git diff:*)
+context: fork
 ---
 
 # Note-Taking Skill
 
-Comprehensive system for maintaining task notes and knowledge base entries to improve Claude's performance across sessions.
+Manages task notes and knowledge base entries across sessions.
 
-## Table of Contents
-- [[#Notes Location]]
-- [[#Task Notes Protocol]]
-- [[#Knowledge Base Protocol]]
-- [[#Obsidian Formatting Standards]]
-- [[#Git Workflow]]
-- [[#Information Lifecycle]]
-- [[#Privacy and Scope]]
+## Workflow
+
+Execute these steps in order, with ONE user interaction point.
+
+### Step 1: Assess
+
+1. Read existing notes (if any)
+2. Calculate file size in characters
+
+### Step 2: Analyze & Propose
+
+Prepare a summary showing:
+```
+Current state:
+- File: notes.md (13.6k chars)
+- Status: ⚠️ Over 10k limit - needs trimming
+
+Proposed changes:
+- ADD: "Next Steps" section with priorities
+- MODIFY: Update "Current Status"
+- REMOVE: Outdated historical section
+- CONSOLIDATE: Merge 4 session logs → 1 summary
+```
+
+### Step 3: Ask (Single Interaction)
+
+**Use AskUserQuestion with multiple questions:**
+
+```json
+{
+  "questions": [
+    {
+      "question": "Apply these changes to notes?",
+      "header": "Apply",
+      "options": [
+        {"label": "Yes, apply", "description": "Write the proposed changes"},
+        {"label": "No, cancel", "description": "Abort without changes"}
+      ],
+      "multiSelect": false
+    },
+    {
+      "question": "Commit to git? (knowledge base only)",
+      "header": "Commit",
+      "options": [
+        {"label": "Yes, commit", "description": "Stage and commit changes"},
+        {"label": "No, skip", "description": "Leave uncommitted"}
+      ],
+      "multiSelect": false
+    }
+  ]
+}
+```
+
+For task notes, only ask the first question.
+
+### Step 4: Execute
+
+If user approved:
+1. Write the changes
+2. Run `git diff <file>` to capture changes
+3. Create log file (see Logging section)
+4. Report log path to user
+
+### Step 5: Log & Report
+
+Create log at `/tmp/note-taking-<timestamp>.log`:
+
+```
+=== Note-Taking Log ===
+Timestamp: 2026-01-20T14:32:15
+Task: <task-name>
+File: <file-path>
+
+Initial size: 13.6k chars
+Final size: 8.2k chars
+
+User decisions:
+- Apply: Yes
+- Commit: No
+
+Changes (git diff):
+<output of git diff>
+```
+
+**Return to main conversation:**
+```
+Notes updated. Log: /tmp/note-taking-20260120-143215.log
+```
+
+---
 
 ## Notes Location
 
 ### Task Notes (Temporary)
-- **Base Directory**: `/path/to/claude/tasks_notes/`
-- **Task Structure**: Each task gets its own folder: `/path/to/claude/tasks_notes/<task_name>/`
-- **File**: All notes go in `<task_name>/notes.md`
-- **Purpose**: Project-specific work, current progress, temporary context
-- **Audience**: Claude only (not human-readable)
+- **Path**: `/path/to/claude/tasks_notes/<task_name>/notes.md`
+- **Audience**: Claude only
 
 ### Knowledge Base (Permanent)
-- **Base Directory**: `/path/to/claude/knowledge_base/`
-- **Structure**: Organized by domain: `/path/to/claude/knowledge_base/<domain>/`
-- **Purpose**: Reusable knowledge, patterns, solutions, configurations
-- **Audience**: Both Claude and human-readable
-- **Organization**: By domain (tools, web-development, databases, etc.) - max 2-3 levels deep
+- **Path**: `/path/to/claude/knowledge_base/<domain>/<topic>.md`
+- **Audience**: Human-readable
 
-## Task Notes Protocol
+## What to Document
 
-### What to Document
-- **Project Context**: Goals, architectural decisions, patterns, dependencies, configuration
-- **Task Progress**: Current tasks, milestones, next steps, blockers
-- **User Preferences**: Coding styles, tool preferences, communication patterns
-- **Important Discoveries** (Consider for Knowledge Base): Complex solutions, debugging insights, optimizations, security considerations, integration patterns
+**Task Notes**: Project context, progress, blockers, next steps, user preferences
 
-### When to Take Notes
-- **When context is needed**: After user asks a question, assess if notes/knowledge base would improve your answer, then read relevant entries
-- **After solving complex problems**: Document the solution and approach
-- **When learning user preferences**: Record for future reference
-- **Before making architectural decisions**: Note the reasoning
-- **When encountering repeated patterns**: Standardize the approach
-- **End of significant work**: Summarize progress and next steps
-- **After discovering reusable knowledge**: Propose knowledge base contributions
+**Knowledge Base**: Complex patterns, tool configs, non-obvious solutions, edge cases
 
-Be proactive, comprehensive, and timely with updates. Use notes to provide better assistance over time.
+## File Size Limit
 
-### Note Management
-1. **On-Demand Review**: Read notes only when needed to answer user questions or provide context
-2. **Keep Current**: Remove outdated information promptly
-3. **Organize Clearly**: Use clear headings and structure
-4. **Update Continuously**: Add information as you learn
-5. **Prioritize Relevance**: Focus on information that improves future performance
-6. **File Size Check**: See "CRITICAL: File Size Monitoring" section below
+Target: **under 10k chars**. If over, propose trimming by:
+- Consolidating session logs
+- Removing outdated sections
+- Archiving completed work
 
-### Notes Structure
-Use the template in `templates/task-notes.md` for consistent structure.
+## Essential Tags (Knowledge Base)
 
-### Task Notes Operations
-- Always list existing task folders in `/path/to/claude/tasks_notes/` before starting work
-- **Focus on active projects**: By default, only review folders in main `tasks_notes/` directory (exclude `tasks_notes/_archived`)
-- Check if a relevant task folder already exists for the current work
-- If uncertain about task naming or which folder to use, ask the user
-- Create new task folder and `notes.md` file if they don't exist
-- Read existing notes from the appropriate task folder to understand current context
-- **Report file sizes**: Immediately show character counts (see CRITICAL: File Size Monitoring)
-- Update notes throughout the session as you learn
-- Ensure notes are saved after significant updates
-- **Archival**: When projects are completed, move their folders to `tasks_notes/_archived/` for historical reference
+**Domain**: `#tools`, `#web`, `#devops`, `#databases`, `#programming`
+**Type**: `#configuration`, `#troubleshooting`, `#pattern`, `#reference`
+**Status**: `#needs_revision`, `#verified`, `#deprecated`
 
-## CRITICAL: File Size Monitoring
+## Templates
 
-**ALWAYS report note file sizes immediately after reading.**
-
-After reading any note file(s):
-1. Check character count of all files read
-2. Report sizes:
-   - **If all files < 20,000 chars**: Show concise summary: "Files read: notes.md (15.2k), other.md (8.3k)"
-   - **If any file ≥ 20,000 chars**: Show full warning:
-     ```
-     ⚠️ WARNING: Large Note File Detected
-     File: [filename]
-     Size: [X] characters (exceeds 20k limit)
-     Action needed: This file should be trimmed for optimal performance.
-     ```
-
-## Knowledge Base Protocol
-
-### Cross-Session Knowledge Discovery
-- **Reactive approach**: Wait for user's first question before accessing notes
-- **Context assessment**: Determine if notes/knowledge base would improve your answer
-- **Targeted retrieval**: Search for specific relevant entries based on question topic
-- **Efficiency**: Avoid reading notes when they're not needed for the task
-- **Present findings**: If you found relevant entries, mention them: "I found relevant notes from [[Previous Work]]"
-
-### Knowledge Base Curation
-- **What to Include**: Obscure tools, complex patterns, non-obvious solutions, tool configs, edge cases, personal projects, specialized setups
-- **What to Exclude**: Basic concepts the user already knows, standard procedures, well-documented features
-- **Search First**: Always search existing knowledge base before proposing new entries
-- **Approval Levels**: urgent (auto-create during incidents), standard (ask at stopping points), batch (collect for session end)
-- **Format**: Human-readable with context, examples, and links to official docs
-- **Cross-referencing**: Link between task notes and knowledge base entries using [[links]]
-- **Maintenance**: When reading knowledge base entries, flag outdated content with `#needs_revision` tag
-
-### Knowledge Base Entry Template
-Use `templates/knowledge-entry.md` for new entries.
-
-## Obsidian Formatting Standards
-
-See `reference/obsidian-formatting.md` for detailed formatting rules including:
-- Required structure and metadata
-- Wikilinks and callouts
-- Tables and code blocks
-- Cross-referencing and tagging
-
-## Git Workflow
-
-### Knowledge Base Changes
-- **Auto-commit**: After each approved knowledge base addition/update
-- **Commit messages**: Descriptive format like "Add API caching notes to tools/"
-- **Maintenance commits**: Auto-commit when adding `#needs_revision` tags
-- **Batch task commits**: Commit completed task notes when archiving
-
-### Maintenance Detection
-- **Passive flagging**: When reading knowledge base entries, check for outdated info
-- **Update metadata**: Add `last_read_at` field and `#needs_revision` tag if outdated
-- **Non-disruptive**: Continue current task, don't interrupt workflow
-- **Batch processing**: User handles `#needs_revision` entries when convenient
-
-## Information Lifecycle
-
-1. **Capture**: Note important information as you encounter it
-2. **Organize**: Structure information logically and clearly
-3. **Review**: Reference notes when starting new tasks
-4. **Update**: Modify notes when circumstances change
-5. **Archive**: Move completed project folders to `tasks_notes/_archived/` subfolder (preserves history while keeping main directory clean)
-
-## Privacy and Scope
-
-- Task notes are for Claude's use only
-- Knowledge base entries are human-readable and shareable
-- Focus on project-relevant information
-- Don't include sensitive personal information
-- Keep notes focused on improving work quality and efficiency
-
-Remember: The goal is to become progressively more helpful and effective by maintaining institutional memory across sessions. Treat this note-taking system as essential to providing excellent assistance.
+- Task notes: `templates/task-notes.md`
+- Knowledge base: `templates/knowledge-entry.md`
+- Formatting: `references/obsidian-formatting.md`

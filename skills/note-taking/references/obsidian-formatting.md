@@ -9,7 +9,6 @@ Reference guide for formatting knowledge base entries in Obsidian.
 - [[#Tables]]
 - [[#Code Blocks]]
 - [[#Cross-Referencing]]
-- [[#Tagging System]]
 
 ## Required Structure
 
@@ -21,8 +20,7 @@ Reference guide for formatting knowledge base entries in Obsidian.
 ## Metadata
 - **Created**: YYYY-MM-DD
 - **Last Updated**: YYYY-MM-DD
-- **Last Read**: YYYY-MM-DD
-- **Tags**: #domain #content-type #status
+- **Tags**: #domain #content-type
 - **Related**: [[Related Note 1]], [[Related Note 2]]
 
 ## Overview
@@ -116,11 +114,8 @@ Use tables for:
 **Required fields:**
 - **Created**: Initial creation date
 - **Last Updated**: Most recent content change
-- **Last Read**: When Claude last read this entry (auto-updated)
-- **Tags**: Domain + content type + status tags
+- **Tags**: Domain + content type tags (see SKILL.md for tag list)
 - **Related**: Key cross-references
-
-**Tag format:** Use existing tag conventions from [[TAGS.md]]
 
 ## Code Blocks
 
@@ -147,11 +142,3 @@ Related: [[Caching]] and [[Configuration Management]].
 - Reference existing knowledge: "See [[Best Practices]] for recommended patterns"
 - Identify new knowledge: "This solution could enhance [[Tools]] section"
 - Link discoveries: "Related to previous work in [[Performance Optimization]]"
-
-## Tagging System
-
-**Follow tagging rules defined in [[TAGS.md]]**:
-- Every knowledge base entry requires domain tag (`#tools`, `#web`, etc.)
-- Every entry requires content type tag (`#configuration`, `#troubleshooting`, etc.)
-- Use status tags for maintenance (`#needs_revision`, `#verified`, `#deprecated`)
-- Follow naming conventions: lowercase with hyphens
