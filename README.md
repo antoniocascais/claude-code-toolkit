@@ -9,11 +9,13 @@ My Claude Code configs — grab what you need.
 |-------|-------------|
 | `git-commit` | Analyzes staged changes, proposes commit structure (single/multiple), generates messages |
 | `skill-creator` | Scaffolds new skills following official spec |
-| `pr-review` | Code review for diffs, commits, branches, PRs (TODO: refactor to support Claude OR Codex as reviewer) |
+| `pr-review` | Code review for diffs, commits, branches, PRs |
 | `note-taking` | Task notes + knowledge base management |
 | `planner` | Task capture and organization |
 | `codemap` | Generate codebase maps with architecture diagrams (WIP - still testing) |
 | `workflow-review` | Reviews CC sessions and proposes workflow improvements (CLAUDE.md updates, new skills, underused features) |
+| `codex` | AI peer review via OpenAI Codex CLI — Claude consults Codex for code review, architecture decisions, and trade-off validation |
+| `c7` | Fetches up-to-date library docs from Context7, saves to /tmp/context7/ |
 
 ### Commands
 | Command | Description |
@@ -91,6 +93,33 @@ ln -s /path/to/your/config/folder/skills ~/.claude/skills
 ```
 
 ## Skill-Specific Setup
+
+### codex (AI Peer Review)
+
+Uses [OpenAI Codex CLI](https://github.com/openai/codex) as a second opinion for code review and technical decisions. Claude consults Codex, they can disagree and argue (up to 3 rounds), then you get a summary of what they agreed/disagreed on.
+
+**Invocation:** `/codex` or `/codex-review`
+
+**Auto-trigger (WIP):** Skill is designed to auto-consult Codex before presenting alternatives or completing significant work, but this isn't reliable yet. Use explicit invocation for now.
+
+**Setup:**
+```bash
+npm install -g @openai/codex
+```
+
+**Example output:**
+```
+After discussion, updated findings:
+
+| Issue                       | Status                                                | Action             |
+|-----------------------------|-------------------------------------------------------|--------------------|
+| jq parse error on assignment| Downgraded to low - email-triage.sh validates JSON first | Optional hardening |
+| ollama pull retries         | Valid - need until clause                             | Fix required       |
+| test-json-parse invalid JSON| False positive - doesn't exit                         | No fix needed      |
+| // empty drops false        | NEW BUG - test fails at line 42                       | Fix required       |
+
+Codex found a real bug: jq -r ".$field // empty" treats false as falsy and returns empty string.
+```
 
 ### workflow-review
 
