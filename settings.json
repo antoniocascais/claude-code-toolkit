@@ -8,7 +8,14 @@
     "allow": [
       "Read(~/Documents/claude/**)",
       "Write(~/Documents/claude/**)",
-      "Edit(~/Documents/claude/**)"
+      "Edit(~/Documents/claude/**)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(gitleaks:*)",
+      "Bash(trivy:*)"
     ],
     "deny": []
   },
