@@ -196,6 +196,35 @@ hooks:
           command: "jq -r '.tool_input.file_path' | xargs -I{} ./validate.sh \"{}\""
 ```
 
+## String Substitution Variables
+
+Available variables for dynamic values in SKILL.md:
+
+| Variable | Description | Example Use |
+|----------|-------------|-------------|
+| `${CLAUDE_SESSION_ID}` | Current session UUID | Audit logs, session-specific temp dirs |
+
+**Usage examples:**
+
+```yaml
+hooks:
+  PostToolUse:
+    - matcher: Write
+      hooks:
+        - type: command
+          command: "echo 'Session: ${CLAUDE_SESSION_ID}' >> /tmp/skill-audit.log"
+```
+
+```markdown
+Store artifacts in `/tmp/claude-${CLAUDE_SESSION_ID}/` for session isolation.
+```
+
+**Use cases:**
+- Audit logging with session correlation
+- Session-specific temp directories
+- Tracking which session created artifacts
+- Correlating web session commits/PRs
+
 ## Skill Spec (Condensed)
 
 ### Required Frontmatter
