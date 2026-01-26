@@ -3,10 +3,9 @@ name: codemap
 description: Generate navigational codebase maps with architecture diagrams. Use when mapping a codebase, creating architecture docs, visualizing project structure, generating infrastructure diagrams, understanding repo layout, or onboarding to a new project.
 allowed-tools:
   - Read
+  - Write(./**)
   - Glob
   - Grep
-  - Bash(find:*)
-  - Bash(wc:*)
   - Bash(ast-grep:*)
   - Bash(terraform graph:*)
   - AskUserQuestion
@@ -27,9 +26,9 @@ Generate `CODEMAP.md` files that help humans and AI agents navigate codebases.
 ### Phase 1: Project Analysis
 
 1. **Count files** to determine project size:
-   ```bash
-   find . -type f -not -path '*/\.*' -not -path '*/node_modules/*' -not -path '*/vendor/*' -not -path '*/__pycache__/*' -not -path '*/target/*' -not -path '*/.terraform/*' | wc -l
-   ```
+   - Use Glob with pattern `**/*` excluding vendored paths
+   - Exclude: `node_modules/`, `vendor/`, `__pycache__/`, `target/`, `.terraform/`, `.*`
+   - Count results to determine depth
 
 2. **Detect project type(s)**:
    - Check for IaC patterns (Terraform, Ansible, K8s, etc.)
@@ -45,6 +44,8 @@ Generate `CODEMAP.md` files that help humans and AI agents navigate codebases.
 
 ### Phase 2: Existing File Check
 
+**STOP. Check for existing CODEMAP.md before proceeding.**
+
 Before generating, check if `CODEMAP.md` exists.
 
 **If exists**: Use `AskUserQuestion` with options:
@@ -53,6 +54,8 @@ Before generating, check if `CODEMAP.md` exists.
 - Abort
 
 **If not exists**: Proceed to generation.
+
+**Do NOT proceed to Phase 3 until resolved.**
 
 ### Phase 3: Content Generation
 
@@ -204,10 +207,12 @@ Extract from `*.tf`:
 - `provider` blocks → cloud targets
 - `data` blocks → external references
 
-If `.terraform/` exists, can run:
+If `.terraform/` exists and `terraform init` has been run, can use:
 ```bash
 terraform graph | # convert DOT to mermaid
 ```
+
+**Note**: `terraform graph` requires initialized state. Skip if `.terraform/` missing or init incomplete.
 
 ## Output Template
 
