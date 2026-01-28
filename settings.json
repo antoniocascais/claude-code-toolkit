@@ -93,6 +93,15 @@
             "command": "~/Documents/ai/bin/claude-block-sensitive-bash.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before editing: Is this ONLY addressing the stated goal? Are you modifying anything outside scope (reformatting, refactoring, comment changes)? If yes, stop and ask user first."
+          }
+        ]
       }
     ]
   },
@@ -111,5 +120,6 @@
   ],
   "feedbackSurveyState": {
     "lastShownTime": 1753975711695
-  }
+  },
+  "model": "opus"
 }

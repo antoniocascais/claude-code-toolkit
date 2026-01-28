@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(planner)",
+      "Skill(skill-creator)",
+      "Bash(tree:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
